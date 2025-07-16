@@ -11,6 +11,7 @@ requires-python = ">= 3.8"
 
 [project.scripts]
 ntp-monitor = "ntp_monitor.main:main"
+ntp_monitor = "ntp_monitor.main:main"
 
 [build-system]
 requires = ["hatchling"]

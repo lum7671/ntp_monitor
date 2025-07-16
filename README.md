@@ -34,6 +34,24 @@ cd ntp_monitor
 
 # 의존성 설치
 rye sync
+
+# 패키지를 개발 모드로 설치 (PATH에서 실행 가능)
+rye install --dev
+```
+
+### 전역 설치 (시스템 PATH에 등록)
+
+```bash
+# 프로젝트 클론
+git clone https://github.com/lum7671/ntp_monitor.git
+cd ntp_monitor
+
+# 시스템에 전역 설치
+rye build
+pip install dist/*.whl
+
+# 또는 직접 설치
+pip install -e .
 ```
 
 ### 직접 설치
@@ -60,18 +78,91 @@ python src/ntp_monitor/main.py
 
 # 설치된 패키지로 실행 (pyproject.toml 스크립트 엔트리 사용)
 ntp-monitor
+# 또는
+ntp_monitor
 ```
 
 ### 정기 실행 (Cron)
 
 시스템에서 정기적으로 모니터링하려면 cron에 등록하세요:
 
+#### 사용자 crontab (권장)
+
 ```bash
 # crontab 편집
 crontab -e
 
-# 5분마다 실행 (예시)
-*/5 * * * * /path/to/python /path/to/ntp_monitor/src/ntp_monitor/main.py
+# PATH 설정 (cron 환경에서 필요)
+PATH=/home/user/.local/bin:/usr/local/bin:/usr/bin:/bin
+
+# 5분마다 실행 (명령어 이름으로 직접 실행)
+*/5 * * * * ntp_monitor
+
+# 또는 전체 경로로 실행 (더 안전)
+*/5 * * * * /home/user/.local/bin/ntp_monitor
+```
+
+#### 시스템 crontab (/etc/crontab)
+
+```bash
+# /etc/crontab 편집 (root 권한 필요)
+sudo vim /etc/crontab
+
+# 시스템 전역 설치된 경우
+*/5 * * * * user /usr/local/bin/ntp_monitor
+```
+
+#### Cron PATH 설정 주의사항
+
+**⚠️ 중요**: Cron은 제한된 PATH 환경에서 실행됩니다.
+
+- **기본 cron PATH**: `/usr/bin:/bin` (매우 제한적)
+- **사용자 설치 위치**: `~/.local/bin/` (PATH에 포함되지 않음)
+- **Rye/pip 설치 위치**: 환경에 따라 다름
+
+**해결 방법들:**
+
+1. **crontab에 PATH 설정** (권장):
+
+   ```bash
+   # crontab 최상단에 추가
+   PATH=/home/user/.local/bin:/usr/local/bin:/usr/bin:/bin
+   */5 * * * * ntp_monitor
+   ```
+
+2. **절대 경로 사용**:
+
+   ```bash
+   # 설치 위치 확인 후 절대 경로 사용
+   which ntp_monitor  # 결과: /home/user/.local/bin/ntp_monitor
+   */5 * * * * /home/user/.local/bin/ntp_monitor
+   ```
+
+3. **쉘 스크립트 래퍼 사용**:
+
+   ```bash
+   # /home/user/bin/run_ntp_monitor.sh 생성
+   #!/bin/bash
+   export PATH="$HOME/.local/bin:$PATH"
+   ntp_monitor
+   
+   # crontab에 등록
+   */5 * * * * /home/user/bin/run_ntp_monitor.sh
+   ```
+
+### PATH 설정 확인
+
+설치 후 명령어가 실행되지 않는다면 PATH 설정을 확인하세요:
+
+```bash
+# 설치된 스크립트 위치 확인
+which ntp_monitor
+
+# PATH에 추가 (필요한 경우)
+export PATH="$HOME/.local/bin:$PATH"
+
+# 또는 Rye 환경에서
+rye show --env | grep PATH
 ```
 
 ## 로그 출력 예시
@@ -223,6 +314,8 @@ ntp_monitor/
 ├── src/ntp_monitor/
 │   ├── __init__.py
 │   └── main.py              # 메인 모니터링 로직
+├── scripts/
+│   └── run_ntp_monitor.sh   # Cron 실행용 래퍼 스크립트
 ├── ntp_monitor.conf.example # 설정 파일 템플릿
 ├── install_config.sh        # 설정 파일 설치 스크립트
 ├── pyproject.toml          # Rye 프로젝트 설정
