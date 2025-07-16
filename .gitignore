@@ -205,3 +205,44 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Rye specific files
+requirements.lock
+requirements-dev.lock
+.python-version
+
+# NTP Monitor specific files
+# Configuration files (should be created by users, not tracked)
+.ntp_monitor.conf
+ntp_monitor.conf
+
+# Log files
+*.log
+*.log.*
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# OS specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE specific files
+.vscode/settings.json
+.vscode/launch.json
+.vscode/extensions.json
+*.swp
+*.swo
+*~
+
+# Backup files
+*.bak
+*.backup
+*.orig
