@@ -10,8 +10,9 @@ from typing import Optional, Dict, Any
 # SyslogHandler: 로컬 syslog(기본 UDP 514 포트)에 전송
 SYSLOG_ADDRESS = '/dev/log'  # 대부분의 Linux에서 지원, DietPi 호환
 
-# 설정 파일 경로 (우선순위: HOME > /etc)
+# 설정 파일 경로 (우선순위: 현재 디렉토리 > HOME > /etc)
 CONFIG_PATHS = [
+  '.ntp_monitor.conf',                        # 현재 디렉토리 (개발용)
   os.path.expanduser('~/.ntp_monitor.conf'),  # 사용자 설정 파일
   '/etc/ntp_monitor.conf'                     # 시스템 설정 파일
 ]

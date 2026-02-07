@@ -25,18 +25,18 @@ NTP 지터(Jitter) 모니터링 프로그램
 
 ## 설치
 
-### Rye 사용 (권장)
+### uv 사용 (권장)
 
 ```bash
 # 프로젝트 클론
 git clone https://github.com/lum7671/ntp_monitor.git
 cd ntp_monitor
 
-# 의존성 설치
-rye sync
+# 의존성 설치 및 환경 구축
+uv sync
 
-# 패키지를 개발 모드로 설치 (PATH에서 실행 가능)
-rye install --dev
+# 실행
+uv run ntp_monitor
 ```
 
 ### 전역 설치 (시스템 PATH에 등록)
@@ -47,8 +47,9 @@ git clone https://github.com/lum7671/ntp_monitor.git
 cd ntp_monitor
 
 # 시스템에 전역 설치
-rye build
+uv build
 pip install dist/*.whl
+```
 
 # 또는 직접 설치
 pip install -e .
@@ -70,8 +71,8 @@ pip install -e .
 ### 명령줄 실행
 
 ```bash
-# Rye 환경에서 실행
-rye run python -m ntp_monitor.main
+# uv 환경에서 실행
+uv run ntp_monitor
 
 # 직접 실행
 python src/ntp_monitor/main.py
@@ -118,7 +119,7 @@ sudo vim /etc/crontab
 
 - **기본 cron PATH**: `/usr/bin:/bin` (매우 제한적)
 - **사용자 설치 위치**: `~/.local/bin/` (PATH에 포함되지 않음)
-- **Rye/pip 설치 위치**: 환경에 따라 다름
+- **uv/pip 설치 위치**: 환경에 따라 다름
 
 **해결 방법들:**
 
@@ -160,10 +161,6 @@ which ntp_monitor
 
 # PATH에 추가 (필요한 경우)
 export PATH="$HOME/.local/bin:$PATH"
-
-# 또는 Rye 환경에서
-rye show --env | grep PATH
-```
 
 ## 로그 출력 예시
 
@@ -299,7 +296,7 @@ if jitter > config['jitter_threshold']:  # 설정 파일에서 읽어옴
 
 ## 개발 환경
 
-이 프로젝트는 [Rye](https://rye-up.com/)로 관리됩니다:
+이 프로젝트는 [uv](https://github.com/astral-sh/uv)로 관리됩니다:
 
 - **빌드 시스템**: Hatchling
 - **패키지 구조**: src-layout
@@ -318,7 +315,7 @@ ntp_monitor/
 │   └── run_ntp_monitor.sh   # Cron 실행용 래퍼 스크립트
 ├── ntp_monitor.conf.example # 설정 파일 템플릿
 ├── install_config.sh        # 설정 파일 설치 스크립트
-├── pyproject.toml          # Rye 프로젝트 설정
+├── pyproject.toml          # uv 프로젝트 설정
 └── README.md               # 프로젝트 문서
 ```
 
