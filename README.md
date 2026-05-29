@@ -141,11 +141,19 @@ sudo vim /etc/crontab
    # /home/user/bin/run_ntp_monitor.sh 생성
    #!/bin/bash
    export PATH="$HOME/.local/bin:$PATH"
-   ntp_monitor
+   cd /home/user/git/ntp_monitor
+   uv run ntp_monitor
    
    # crontab에 등록
    */5 * * * * /home/user/bin/run_ntp_monitor.sh
    ```
+
+#### uv 실행과 래퍼 실행 결과가 다를 때
+
+- `uv run ntp_monitor` 는 정상인데 래퍼 실행에서만 에러가 나면,
+  전역 설치된 예전 `ntp_monitor` 엔트리포인트를 타는 경우가 많습니다.
+- 래퍼 스크립트에서 프로젝트 루트로 이동 후 `uv run ntp_monitor` 를 사용하세요.
+- 본 저장소의 [scripts/run_ntp_monitor.sh](scripts/run_ntp_monitor.sh) 는 이 방식으로 수정되어 있습니다.
 
 ### PATH 설정 확인
 
