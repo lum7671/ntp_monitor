@@ -5,22 +5,26 @@ import logging.handlers
 import sys
 import configparser
 import os
-from typing import Optional, Dict, Any
+import socket
+from typing import Optional, Dict, Any, List, Tuple, Union
 
 # SyslogHandler: 로컬 syslog(기본 UDP 514 포트)에 전송
 SYSLOG_ADDRESS = '/dev/log'  # 대부분의 Linux에서 지원, DietPi 호환
 
-# 설정 파일 경로 (우선순위: 현재 디렉토리 > HOME > /etc)
+# 설정 파일 경로 (우선순위: /etc < HOME < 현재 디렉토리)
+# ConfigParser는 나중에 읽은 파일 값이 우선 적용됩니다.
 CONFIG_PATHS = [
-  '.ntp_monitor.conf',                        # 현재 디렉토리 (개발용)
-  os.path.expanduser('~/.ntp_monitor.conf'),  # 사용자 설정 파일
-  '/etc/ntp_monitor.conf'                     # 시스템 설정 파일
+  '/etc/ntp_monitor.conf',                     # 시스템 설정 파일
+  os.path.expanduser('~/.ntp_monitor.conf'),   # 사용자 설정 파일
+  '.ntp_monitor.conf',                         # 현재 디렉토리 (개발용)
 ]
+
+SyslogAddress = Union[str, Tuple[str, int]]
 
 def load_config() -> Dict[str, Any]:
   """
   설정 파일을 로드합니다.
-  우선순위: ~/.ntp_monitor.conf > /etc/ntp_monitor.conf
+  우선순위: /etc < ~/.ntp_monitor.conf < ./.ntp_monitor.conf
   
   Returns:
     Dict[str, Any]: 설정 값들
@@ -37,6 +41,56 @@ def load_config() -> Dict[str, Any]:
     'syslog_address': config.get('logging', 'syslog_address', fallback=SYSLOG_ADDRESS),
     'config_files_read': config_files_read  # 어떤 설정 파일이 읽혔는지 정보
   }
+
+def parse_syslog_address(raw_address: str) -> SyslogAddress:
+  """
+  syslog 주소 문자열을 파싱합니다.
+
+  - /dev/log 같은 절대 경로는 unix socket 경로로 사용
+  - host:port 형식은 (host, port) 튜플로 변환
+  """
+  value = raw_address.strip()
+
+  # unix socket 경로는 그대로 사용
+  if '/' in value and not (':' in value and value.count(':') == 1 and value.rsplit(':', 1)[1].isdigit()):
+    return value
+
+  if ':' in value:
+    host, port_text = value.rsplit(':', 1)
+    if host and port_text.isdigit():
+      return (host, int(port_text))
+
+  return value
+
+def build_syslog_candidates(configured_address: SyslogAddress) -> List[SyslogAddress]:
+  """설정값 우선으로 syslog 후보 주소 목록을 구성합니다."""
+  candidates: List[SyslogAddress] = [
+    configured_address,
+    '/dev/log',
+    '/run/systemd/journal/dev-log',
+    ('localhost', 514),
+  ]
+
+  unique_candidates: List[SyslogAddress] = []
+  for candidate in candidates:
+    if candidate not in unique_candidates:
+      unique_candidates.append(candidate)
+
+  return unique_candidates
+
+def create_syslog_handler(address: SyslogAddress) -> Optional[logging.Handler]:
+  """
+  주소 유형에 맞춰 SysLogHandler를 생성합니다.
+  유효하지 않은 unix socket 경로는 생성하지 않습니다.
+  """
+  if isinstance(address, str):
+    if not address.startswith('/'):
+      return None
+    if not os.path.exists(address):
+      return None
+    return logging.handlers.SysLogHandler(address=address)
+
+  return logging.handlers.SysLogHandler(address=address, socktype=socket.SOCK_DGRAM)
 
 def get_jitter() -> Optional[float]:
   """
@@ -80,6 +134,9 @@ def get_jitter() -> Optional[float]:
 def setup_logger(config: Dict[str, Any]) -> logging.Logger:
   """로거 설정"""
   logger = logging.getLogger('ntp_monitor')
+
+  # 로깅 핸들러 내부 예외 traceback이 stderr로 노출되지 않도록 방지합니다.
+  logging.raiseExceptions = False
   
   # 로그 레벨 설정
   log_level = getattr(logging, config['log_level'].upper(), logging.INFO)
@@ -89,21 +146,31 @@ def setup_logger(config: Dict[str, Any]) -> logging.Logger:
   for handler in logger.handlers[:]:
     logger.removeHandler(handler)
   
-  syslog_address = config['syslog_address']
-  
-  try:
-    syslog_handler = logging.handlers.SysLogHandler(address=syslog_address)
-  except Exception:
-    # 일부 시스템에서는 /dev/log 대신 ('localhost', 514) 필요
+  syslog_address = parse_syslog_address(str(config['syslog_address']))
+
+  selected_handler: Optional[logging.Handler] = None
+  selected_target = 'stdout'
+
+  for candidate in build_syslog_candidates(syslog_address):
     try:
-      syslog_handler = logging.handlers.SysLogHandler(address=('localhost', 514))
-    except Exception:
-      # syslog 사용 불가 시 콘솔로 출력
-      syslog_handler = logging.StreamHandler(sys.stdout)
+      handler = create_syslog_handler(candidate)
+      if handler is None:
+        continue
+      selected_handler = handler
+      selected_target = str(candidate)
+      break
+    except (OSError, ValueError):
+      continue
+
+  if selected_handler is None:
+    selected_handler = logging.StreamHandler(sys.stdout)
   
   formatter = logging.Formatter('%(name)s: %(levelname)s %(message)s')
-  syslog_handler.setFormatter(formatter)
-  logger.addHandler(syslog_handler)
+  selected_handler.setFormatter(formatter)
+  logger.addHandler(selected_handler)
+
+  if config.get('debug_mode', False):
+    logger.info(f"로깅 출력 대상: {selected_target}")
   
   return logger
 

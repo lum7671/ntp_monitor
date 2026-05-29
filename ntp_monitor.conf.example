@@ -6,11 +6,13 @@
 jitter_threshold = 2.0
 
 # 디버그 모드 (true/false)
-debug_mode = true
+debug_mode = false
 
 # 로그 레벨 (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 log_level = INFO
 
 [logging]
-# Syslog 주소 (Linux: /dev/log, macOS/네트워크: localhost:514)
-syslog_address = localhost:514
+# Syslog 주소
+# - Linux unix socket: /dev/log
+# - 네트워크 syslog: localhost:514
+syslog_address = /dev/log

@@ -10,7 +10,7 @@ NTP 지터(Jitter) 모니터링 프로그램
 
 - **NTP 지터 모니터링**: `timedatectl show-timesync` 명령을 통해 실시간 지터 값 측정
 - **다양한 단위 지원**: 초(s), 밀리초(ms), 마이크로초(μs) 단위 자동 인식 및 변환
-- **설정 파일 지원**: `~/.ntp_monitor.conf` (사용자) 및 `/etc/ntp_monitor.conf` (시스템) 우선순위 기반 설정
+- **설정 파일 지원**: `/etc/ntp_monitor.conf`, `~/.ntp_monitor.conf`, `./.ntp_monitor.conf` 우선순위 기반 설정
 - **유연한 임계치 설정**: 설정 파일을 통한 지터 임계치 조정 가능
 - **시스템 로그 연동**: syslog를 통한 로그 기록 (로컬 syslog 또는 콘솔 출력)
 - **크로스 플랫폼**: Linux (`/dev/log`), macOS/네트워크 (`localhost:514`) 환경 지원
@@ -19,7 +19,7 @@ NTP 지터(Jitter) 모니터링 프로그램
 
 ## 요구사항
 
-- Python 3.8 이상
+- Python 3.14 이상
 - Linux 시스템 (systemd의 timedatectl 지원)
 - NTP 서비스 실행 중
 
@@ -49,10 +49,6 @@ cd ntp_monitor
 # 시스템에 전역 설치
 uv build
 pip install dist/*.whl
-```
-
-# 또는 직접 설치
-pip install -e .
 ```
 
 ### 직접 설치
@@ -161,6 +157,14 @@ which ntp_monitor
 
 # PATH에 추가 (필요한 경우)
 export PATH="$HOME/.local/bin:$PATH"
+```
+
+## 문서
+
+- 프로젝트 분석: `docs/PROJECT_ANALYSIS.md`
+- 로깅 에러 수정 내역: `docs/LOGGING_ERROR_FIX.md`
+- 단계별 구현 문서: `docs/STEP_BY_STEP_IMPLEMENTATION.md`
+- 검증 결과: `docs/VALIDATION_RESULTS.md`
 
 ## 로그 출력 예시
 
@@ -197,8 +201,11 @@ ntp_monitor: INFO NTP 상태 양호, 지터: 0.05초
 
 NTP Monitor는 다음 위치의 설정 파일을 우선순위에 따라 읽습니다:
 
-1. `~/.ntp_monitor.conf` (사용자 설정, 우선순위 높음)
-2. `/etc/ntp_monitor.conf` (시스템 설정)
+1. `/etc/ntp_monitor.conf` (시스템 설정)
+2. `~/.ntp_monitor.conf` (사용자 설정)
+3. `./.ntp_monitor.conf` (현재 디렉토리, 개발용)
+
+ConfigParser 특성상 **나중에 읽은 파일 값이 우선 적용**됩니다.
 
 #### 설정 파일의 장점
 
@@ -242,7 +249,9 @@ debug_mode = false
 log_level = INFO
 
 [logging]
-# Syslog 주소 (Linux: /dev/log, 네트워크: localhost:514)
+# Syslog 주소
+# - Linux unix socket: /dev/log
+# - 네트워크 syslog: localhost:514
 syslog_address = /dev/log
 ```
 
@@ -257,7 +266,7 @@ if jitter > config['jitter_threshold']:  # 설정 파일에서 읽어옴
 ### 로그 설정
 
 - **기본**: `/dev/log` (Linux syslog)
-- **대체**: `localhost:514` (UDP syslog)
+- **대체**: `localhost:514` (UDP syslog, host:port 형식 지원)
 - **폴백**: 콘솔 출력
 - **설정 가능**: 설정 파일의 `syslog_address`에서 변경 가능
 
