@@ -46,3 +46,26 @@
 ## 결론
 
 1차 목표(내부 logging traceback 제거, 안전 fallback)는 달성되었습니다. 운영 반영 전에는 DietPi 실환경에서 미검증 항목 2가지를 추가 확인하는 것을 권장합니다.
+
+## 로그 고도화 검증 (2026-05-29)
+
+### 시나리오
+
+- threshold = 1.0
+- consecutive_warning_threshold = 3
+- critical_jitter_multiplier = 2.0
+- 실행 시퀀스: 1.1 -> 1.2 -> 1.3 -> 0.8 -> 2.1
+
+### 결과
+
+1. RUN1: WARNING 발생
+1. RUN2: WARNING 발생
+1. RUN3: WARNING 발생 후 "연속 3회" ERROR 1회 발생
+1. RUN4: INFO(정상) 발생 및 연속 카운트 리셋
+1. RUN5: WARNING 발생 후 "2배 초과" 즉시 ERROR 1회 발생
+
+### 상태 파일 검증
+
+- 최종 상태: consecutive_warnings=0
+- warning_jitters=[]
+- 연속 경고/즉시 에러 후 상태 리셋 정상

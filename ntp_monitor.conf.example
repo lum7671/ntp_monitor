@@ -1,9 +1,17 @@
 # NTP Monitor 설정 파일
-# 이 파일을 ~/.ntp_monitor.conf 또는 /etc/ntp_monitor.conf 에 복사하세요
+# 권장 사용자 경로: ~/.config/ntp_monitor/config.ini
+# 하위 호환 경로: ~/.ntp_monitor.conf
+# 시스템 경로: /etc/ntp_monitor.conf
 
 [monitoring]
 # NTP 지터 임계치 (초 단위)
 jitter_threshold = 2.0
+
+# 경고가 연속 N회 발생하면 error 로그 발송
+consecutive_warning_threshold = 3
+
+# 지터가 임계치 * 배수 이상이면 즉시 error 로그 발송
+critical_jitter_multiplier = 2.0
 
 # 디버그 모드 (true/false)
 debug_mode = false
@@ -16,3 +24,9 @@ log_level = INFO
 # - Linux unix socket: /dev/log
 # - 네트워크 syslog: localhost:514
 syslog_address = /dev/log
+
+[state]
+# 연속 경고 상태를 저장할 파일 경로
+# 비워두면 기본 경로 사용: $XDG_STATE_HOME/ntp_monitor/state.json
+# (XDG_STATE_HOME이 없으면 ~/.local/state/ntp_monitor/state.json)
+state_file_path =

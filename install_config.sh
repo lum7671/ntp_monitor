@@ -10,12 +10,24 @@ EXAMPLE_CONFIG="$SCRIPT_DIR/ntp_monitor.conf.example"
 echo "NTP Monitor 설정 파일 설치"
 echo "=========================="
 
-# 사용자 홈 디렉토리에 설치
-USER_CONFIG="$HOME/.ntp_monitor.conf"
+# 사용자 XDG 설정 디렉토리에 설치
+XDG_CONFIG_BASE="${XDG_CONFIG_HOME:-$HOME/.config}"
+USER_CONFIG_DIR="$XDG_CONFIG_BASE/ntp_monitor"
+USER_CONFIG="$USER_CONFIG_DIR/config.ini"
+LEGACY_USER_CONFIG="$HOME/.ntp_monitor.conf"
+
+mkdir -p "$USER_CONFIG_DIR"
+
 if [ ! -f "$USER_CONFIG" ]; then
-  echo "사용자 설정 파일 생성: $USER_CONFIG"
-  cp "$EXAMPLE_CONFIG" "$USER_CONFIG"
-  echo "✓ 사용자 설정 파일이 생성되었습니다."
+  if [ -f "$LEGACY_USER_CONFIG" ]; then
+    echo "레거시 사용자 설정 파일을 XDG 경로로 마이그레이션: $LEGACY_USER_CONFIG -> $USER_CONFIG"
+    cp "$LEGACY_USER_CONFIG" "$USER_CONFIG"
+    echo "✓ 사용자 설정 파일이 마이그레이션되었습니다."
+  else
+    echo "사용자 설정 파일 생성: $USER_CONFIG"
+    cp "$EXAMPLE_CONFIG" "$USER_CONFIG"
+    echo "✓ 사용자 설정 파일이 생성되었습니다."
+  fi
 else
   echo "ℹ 사용자 설정 파일이 이미 존재합니다: $USER_CONFIG"
 fi
@@ -38,7 +50,9 @@ fi
 
 echo ""
 echo "설정 파일 우선순위:"
-echo "1. $USER_CONFIG (사용자 설정)"
-echo "2. $SYSTEM_CONFIG (시스템 설정)"
+echo "1. $SYSTEM_CONFIG (시스템 설정)"
+echo "2. $LEGACY_USER_CONFIG (레거시 사용자 설정)"
+echo "3. $USER_CONFIG (XDG 사용자 설정)"
+echo "4. ./.ntp_monitor.conf (현재 디렉토리, 개발용)"
 echo ""
 echo "설정을 변경한 후 ntp-monitor를 실행하세요."

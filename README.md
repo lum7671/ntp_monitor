@@ -10,8 +10,10 @@ NTP 지터(Jitter) 모니터링 프로그램
 
 - **NTP 지터 모니터링**: `timedatectl show-timesync` 명령을 통해 실시간 지터 값 측정
 - **다양한 단위 지원**: 초(s), 밀리초(ms), 마이크로초(μs) 단위 자동 인식 및 변환
-- **설정 파일 지원**: `/etc/ntp_monitor.conf`, `~/.ntp_monitor.conf`, `./.ntp_monitor.conf` 우선순위 기반 설정
+- **설정 파일 지원**: `/etc/ntp_monitor.conf`, `~/.config/ntp_monitor/config.ini`, `./.ntp_monitor.conf` 우선순위 기반 설정
 - **유연한 임계치 설정**: 설정 파일을 통한 지터 임계치 조정 가능
+- **연속 경고 기반 에러 승격**: warning 3회 연속 발생 시 error 로그 발송
+- **즉시 치명 임계 감지**: 지터가 임계치 2배 이상이면 즉시 error 로그 발송
 - **시스템 로그 연동**: syslog를 통한 로그 기록 (로컬 syslog 또는 콘솔 출력)
 - **크로스 플랫폼**: Linux (`/dev/log`), macOS/네트워크 (`localhost:514`) 환경 지원
 - **디버그 모드**: 설정 파일 로드 상태 및 상세 정보 출력
@@ -173,6 +175,7 @@ export PATH="$HOME/.local/bin:$PATH"
 - 로깅 에러 수정 내역: `docs/LOGGING_ERROR_FIX.md`
 - 단계별 구현 문서: `docs/STEP_BY_STEP_IMPLEMENTATION.md`
 - 검증 결과: `docs/VALIDATION_RESULTS.md`
+- 로그 고도화 문서: `docs/LOG_ENHANCEMENT_PLAN.md`
 
 ## 로그 출력 예시
 
@@ -185,7 +188,19 @@ ntp_monitor: INFO NTP 상태 양호, 지터: 0.05초
 ### 임계치 초과
 
 ```text
-ntp_monitor: WARNING NTP 지터 임계치 초과: 2.15초 (알림 전송됨)
+ntp_monitor: WARNING NTP 지터 임계치 초과: 2.15초 (임계치: 1.00초)
+```
+
+### 연속 경고 승격 상태
+
+```text
+ntp_monitor: ERROR NTP 지터 경고 연속 3회 발생으로 에러 발송 (기간: 2026-05-29 10:00:00 ~ 2026-05-29 10:10:00, 임계치: 1.00초, 최근 지터(min/max/latest): 1.10/1.40/1.40초)
+```
+
+### 즉시 에러 상태 (2배 초과)
+
+```text
+ntp_monitor: ERROR NTP 지터 임계치 2.0x 초과로 즉시 에러 발송 (현재: 2.20초, 임계치: 1.00초, 기준: 2.00초, 시각: 2026-05-29 10:05:00)
 ```
 
 ### 오류 상황
@@ -198,7 +213,7 @@ ntp_monitor: ERROR NTP 모니터링 중 오류 발생: [오류 내용]
 ### 디버그 모드
 
 ```text
-ntp_monitor: INFO 설정 파일 로드됨: /home/user/.ntp_monitor.conf
+ntp_monitor: INFO 설정 파일 로드됨: /home/user/.config/ntp_monitor/config.ini
 ntp_monitor: INFO 지터 임계치: 1.5초
 ntp_monitor: INFO NTP 상태 양호, 지터: 0.05초
 ```
@@ -210,8 +225,9 @@ ntp_monitor: INFO NTP 상태 양호, 지터: 0.05초
 NTP Monitor는 다음 위치의 설정 파일을 우선순위에 따라 읽습니다:
 
 1. `/etc/ntp_monitor.conf` (시스템 설정)
-2. `~/.ntp_monitor.conf` (사용자 설정)
-3. `./.ntp_monitor.conf` (현재 디렉토리, 개발용)
+2. `~/.ntp_monitor.conf` (레거시 사용자 설정)
+3. `~/.config/ntp_monitor/config.ini` (권장 사용자 설정)
+4. `./.ntp_monitor.conf` (현재 디렉토리, 개발용)
 
 ConfigParser 특성상 **나중에 읽은 파일 값이 우선 적용**됩니다.
 
@@ -237,6 +253,10 @@ sudo ./install_config.sh
 
 ```bash
 # 사용자 설정 파일 생성
+mkdir -p ~/.config/ntp_monitor
+cp ntp_monitor.conf.example ~/.config/ntp_monitor/config.ini
+
+# 레거시 사용자 설정 파일 생성(하위 호환)
 cp ntp_monitor.conf.example ~/.ntp_monitor.conf
 
 # 시스템 설정 파일 생성 (root 권한 필요)
@@ -250,6 +270,12 @@ sudo cp ntp_monitor.conf.example /etc/ntp_monitor.conf
 # NTP 지터 임계치 (초 단위)
 jitter_threshold = 2.0
 
+# 경고가 연속 N회 발생하면 error 로그 발송
+consecutive_warning_threshold = 3
+
+# 지터가 임계치 * 배수 이상이면 즉시 error 로그 발송
+critical_jitter_multiplier = 2.0
+
 # 디버그 모드 (true/false)
 debug_mode = false
 
@@ -261,6 +287,12 @@ log_level = INFO
 # - Linux unix socket: /dev/log
 # - 네트워크 syslog: localhost:514
 syslog_address = /dev/log
+
+[state]
+# 연속 경고 상태를 저장할 파일 경로
+# 비워두면 기본 경로 사용: $XDG_STATE_HOME/ntp_monitor/state.json
+# (XDG_STATE_HOME이 없으면 ~/.local/state/ntp_monitor/state.json)
+state_file_path =
 ```
 
 ### 임계치 변경 (레거시)
@@ -277,6 +309,16 @@ if jitter > config['jitter_threshold']:  # 설정 파일에서 읽어옴
 - **대체**: `localhost:514` (UDP syslog, host:port 형식 지원)
 - **폴백**: 콘솔 출력
 - **설정 가능**: 설정 파일의 `syslog_address`에서 변경 가능
+
+### 로그 고도화 설정
+
+- `consecutive_warning_threshold`:
+   warning이 연속으로 몇 번 발생하면 error로 승격할지 지정합니다.
+- `critical_jitter_multiplier`:
+   지터가 `jitter_threshold * multiplier` 이상일 때 즉시 error를 발생시킵니다.
+- `state_file_path`:
+   연속 경고 카운트를 저장할 상태 파일 경로입니다.
+   비워두면 기본 경로(`$XDG_STATE_HOME/ntp_monitor/state.json` 또는 `~/.local/state/ntp_monitor/state.json`)를 사용합니다.
 
 ### 디버그 기능
 
